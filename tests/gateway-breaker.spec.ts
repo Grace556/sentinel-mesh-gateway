@@ -13,7 +13,7 @@ describe('Gateway & Breaker Integration', () => {
 
     gateway.registerBreaker('billing', billingBreaker);
 
-    gateway.registerRoute('POST', '/pay', async (ctx) => {
+    gateway.registerRoute('POST', '/pay', async (_ctx) => {
       const breaker = gateway.getBreaker('billing')!;
       return breaker.execute(async () => {
         throw new Error('Billing network timeout');
@@ -29,11 +29,9 @@ describe('Gateway & Breaker Integration', () => {
       body: {}
     };
 
-    // First attempt fails upstream and trips the breaker
     const res1 = await gateway.dispatch(req);
     expect(res1.statusCode).toBe(500);
 
-    // Second attempt is immediately blocked by circuit breaker returning 503
     const res2 = await gateway.dispatch(req);
     expect(res2.statusCode).toBe(503);
     expect(res2.error?.code).toBe('CIRCUIT_OPEN');
