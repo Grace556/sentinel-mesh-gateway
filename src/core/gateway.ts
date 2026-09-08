@@ -3,6 +3,7 @@ import { TokenBucketLimiter } from '../limiter/tokenBucket';
 import { CircuitBreaker } from '../breaker/circuitBreaker';
 import { TelemetryLogger } from '../telemetry/logger';
 import { MeshError } from '../errors/meshErrors';
+import { validateRequestContext } from './validation';
 
 export class MeshGateway {
   private routes: Map<string, RouteHandler<unknown, unknown>> = new Map();
@@ -19,6 +20,10 @@ export class MeshGateway {
     return this;
   }
 
+  public getBreaker(serviceName: string): CircuitBreaker | undefined {
+    return this.circuitBreakers.get(serviceName);
+  }
+
   public registerRoute<TIn, TOut>(
     method: string,
     path: string,
@@ -30,6 +35,17 @@ export class MeshGateway {
   }
 
   public async dispatch<TIn, TOut>(ctx: RequestContext<TIn>): Promise<ResponseEnvelope<TOut>> {
+    try {
+      validateRequestContext(ctx);
+    } catch (err) {
+      const meshErr = err as MeshError;
+      return {
+        statusCode: meshErr.statusCode,
+        traceId: (ctx && typeof ctx === 'object' && 'traceId' in ctx) ? String(ctx.traceId) : 'unknown',
+        error: { code: meshErr.code, message: meshErr.message }
+      };
+    }
+
     const routeKey = `${ctx.method.toUpperCase()}:${ctx.path}`;
     TelemetryLogger.emit('info', ctx.traceId, 'REQUEST_DISPATCH', { route: routeKey });
 
