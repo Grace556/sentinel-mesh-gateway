@@ -1,28 +1,21 @@
+import { z } from 'zod';
 import { RequestContext, HttpMethod } from './types';
 import { ValidationError } from '../errors/meshErrors';
 
-const VALID_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+export const RequestContextSchema = z.object({
+  traceId: z.string().min(1, 'Must provide a non-empty traceId string'),
+  timestamp: z.number().int().positive(),
+  path: z.string().startsWith('/', 'Path must start with /'),
+  method: z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const),
+  headers: z.record(z.string(), z.string()),
+  body: z.unknown().optional()
+});
 
 export function validateRequestContext(ctx: unknown): asserts ctx is RequestContext {
-  if (!ctx || typeof ctx !== 'object') {
-    throw new ValidationError('context', 'RequestContext must be a non-null object');
-  }
-
-  const candidate = ctx as Record<string, unknown>;
-
-  if (typeof candidate.traceId !== 'string' || candidate.traceId.trim().length === 0) {
-    throw new ValidationError('traceId', 'Must provide a non-empty traceId string');
-  }
-
-  if (typeof candidate.path !== 'string' || !candidate.path.startsWith('/')) {
-    throw new ValidationError('path', 'Path must be a string starting with /');
-  }
-
-  if (!VALID_METHODS.includes(candidate.method as HttpMethod)) {
-    throw new ValidationError('method', `Unsupported HTTP method: ${String(candidate.method)}`);
-  }
-
-  if (typeof candidate.headers !== 'object' || candidate.headers === null || Array.isArray(candidate.headers)) {
-    throw new ValidationError('headers', 'Headers must be a key-value record');
+  const result = RequestContextSchema.safeParse(ctx);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    const path = issue.path.join('.') || 'context';
+    throw new ValidationError(path, issue.message);
   }
 }

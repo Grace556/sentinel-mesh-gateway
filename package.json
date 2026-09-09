@@ -10,7 +10,13 @@
     "test": "jest --coverage --verbose",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["gateway", "resilience", "circuit-breaker", "rate-limiter", "telemetry"],
+  "keywords": [
+    "gateway",
+    "resilience",
+    "circuit-breaker",
+    "rate-limiter",
+    "telemetry"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -21,5 +27,8 @@
     "jest": "^29.7.0",
     "ts-jest": "^29.1.2",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "zod": "^4.5.4"
   }
 }

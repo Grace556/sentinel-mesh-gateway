@@ -1,38 +1,36 @@
-import { validateRequestContext } from '../src/core/validation';
+import { validateRequestContext, RequestContextSchema } from '../src/core/validation';
 import { ValidationError } from '../src/errors/meshErrors';
 import { MeshGateway } from '../src/core/gateway';
 
-describe('Validation Layer', () => {
-  it('passes on valid request context', () => {
-    expect(() => {
-      validateRequestContext({
-        traceId: 'tr-001',
-        timestamp: Date.now(),
-        path: '/api/v1/orders',
-        method: 'GET',
-        headers: {},
-        body: null
-      });
-    }).not.toThrow();
+describe('Schema Validation Layer', () => {
+  it('validates a schema-conforming RequestContext', () => {
+    const validCtx = {
+      traceId: 'tr-valid-1',
+      timestamp: Date.now(),
+      path: '/api/v1/resource',
+      method: 'POST' as const,
+      headers: { authorization: 'Bearer token' },
+      body: { key: 'value' }
+    };
+    expect(RequestContextSchema.safeParse(validCtx).success).toBe(true);
+    expect(() => validateRequestContext(validCtx)).not.toThrow();
   });
 
-  it('rejects contexts without leading slash on path', () => {
-    expect(() => {
-      validateRequestContext({
-        traceId: 'tr-002',
-        timestamp: Date.now(),
-        path: 'bad-path',
-        method: 'GET',
-        headers: {},
-        body: null
-      });
-    }).toThrow(ValidationError);
+  it('throws ValidationError when path lacks leading slash', () => {
+    const invalidCtx = {
+      traceId: 'tr-invalid-2',
+      timestamp: Date.now(),
+      path: 'no-leading-slash',
+      method: 'GET' as const,
+      headers: {}
+    };
+    expect(() => validateRequestContext(invalidCtx)).toThrow(ValidationError);
   });
 
-  it('gateway dispatch returns status 400 with VALIDATION_FAILED on malformed inputs', async () => {
+  it('gateway dispatch intercepts schema failures with 400', async () => {
     const gateway = new MeshGateway();
-    // @ts-expect-error testing runtime bad input
-    const res = await gateway.dispatch({ traceId: '', path: '/bad' });
+    // @ts-expect-error testing invalid method
+    const res = await gateway.dispatch({ traceId: 'tr-3', path: '/foo', method: 'INVALID' });
     expect(res.statusCode).toBe(400);
     expect(res.error?.code).toBe('VALIDATION_FAILED');
   });
